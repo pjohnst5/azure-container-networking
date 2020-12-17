@@ -111,11 +111,15 @@ ifeq ($(GOOS),linux)
 	# Linux.
 	ARCHIVE_CMD = tar -czvf
 	ARCHIVE_EXT = tgz
+	MKDIR := mkdir -p
+	RMDIR := rm -rf
 else
 	# Windows.
 	ARCHIVE_CMD = zip -9lq
 	ARCHIVE_EXT = zip
 	EXE_EXT = .exe
+	MKDIR := powershell.exe -NoProfile -Command New-Item -ItemType Directory -Force
+	RMDIR := powershell.exe -NoProfile -Command Remove-Item -Recurse -Force
 endif
 
 # Archive file names.
@@ -152,7 +156,7 @@ AZURE_CNS_IMAGE = $(IMAGE_REGISTRY)/azure-cns
 VERSION ?= $(shell git describe --tags --always --dirty)
 CNS_AI_ID = ce672799-8f08-4235-8c12-08563dc2acef
 cnsaipath=github.com/Azure/azure-container-networking/cns/logger.aiMetadata
-ENSURE_OUTPUT_DIR_EXISTS := $(shell mkdir -p $(OUTPUT_DIR))
+ENSURE_OUTPUT_DIR_EXISTS := $(shell $(MKDIR) $(OUTPUT_DIR))
 
 # Shorthand target names for convenience.
 azure-cnm-plugin: $(CNM_BUILD_DIR)/azure-vnet-plugin$(EXE_EXT) cnm-archive
@@ -186,7 +190,7 @@ endif
 # Clean all build artifacts.
 .PHONY: clean
 clean:
-	rm -rf $(OUTPUT_DIR)
+	$(MKDIR) $(OUTPUT_DIR)
 
 # Build the Azure CNM plugin.
 $(CNM_BUILD_DIR)/azure-vnet-plugin$(EXE_EXT): $(CNMFILES)
@@ -276,7 +280,7 @@ azure-vnet-plugin-image: azure-cnm-plugin
 	# Create a container using the image and export its rootfs.
 	docker create $(CNM_PLUGIN_ROOTFS):$(VERSION) > cid
 	$(eval CID := `cat cid`)
-	mkdir -p $(OUTPUT_DIR)/$(CID)/rootfs
+	$(MKDIR) $(OUTPUT_DIR)/$(CID)/rootfs
 	docker export $(CID) | tar -x -C $(OUTPUT_DIR)/$(CID)/rootfs
 	docker rm -vf $(CID)
 
@@ -289,8 +293,8 @@ azure-vnet-plugin-image: azure-cnm-plugin
 	docker plugin create $(CNM_PLUGIN_IMAGE):$(VERSION) $(OUTPUT_DIR)/$(CID)
 
 	# Cleanup temporary files.
-	rm -rf $(OUTPUT_DIR)/$(CID)
-	rm cid
+	$(MKDIR) $(OUTPUT_DIR)/$(CID)
+	$(RMDIR)
 
 # Publish the Azure CNM plugin image to a Docker registry.
 .PHONY: publish-azure-vnet-plugin-image
@@ -370,7 +374,7 @@ cni-archive:
 	cd $(CNI_BUILD_DIR) && $(ARCHIVE_CMD) $(CNI_ARCHIVE_NAME) azure-vnet$(EXE_EXT) azure-vnet-ipam$(EXE_EXT) azure-vnet-ipamv6$(EXE_EXT) azure-vnet-telemetry$(EXE_EXT) 10-azure.conflist azure-vnet-telemetry.config
 	chown $(BUILD_USER):$(BUILD_USER) $(CNI_BUILD_DIR)/$(CNI_ARCHIVE_NAME)
 
-	mkdir -p $(CNI_MULTITENANCY_BUILD_DIR)
+	$(MKDIR) $(CNI_MULTITENANCY_BUILD_DIR)
 	cp cni/azure-$(GOOS)-multitenancy.conflist $(CNI_MULTITENANCY_BUILD_DIR)/10-azure.conflist
 	cp telemetry/azure-vnet-telemetry.config $(CNI_MULTITENANCY_BUILD_DIR)/azure-vnet-telemetry.config
 	cp $(CNI_BUILD_DIR)/azure-vnet$(EXE_EXT) $(CNI_BUILD_DIR)/azure-vnet-ipam$(EXE_EXT) $(CNI_BUILD_DIR)/azure-vnet-telemetry$(EXE_EXT) $(CNI_MULTITENANCY_BUILD_DIR)
@@ -380,7 +384,7 @@ cni-archive:
 
 #swift mode is linux only
 ifeq ($(GOOS),linux)
-	mkdir -p $(CNI_SWIFT_BUILD_DIR)
+	$(MKDIR) $(CNI_SWIFT_BUILD_DIR)
 	cp cni/azure-$(GOOS)-swift.conflist $(CNI_SWIFT_BUILD_DIR)/10-azure.conflist
 	cp telemetry/azure-vnet-telemetry.config $(CNI_SWIFT_BUILD_DIR)/azure-vnet-telemetry.config
 	cp $(CNI_BUILD_DIR)/azure-vnet$(EXE_EXT) $(CNI_BUILD_DIR)/azure-vnet-ipam$(EXE_EXT) $(CNI_BUILD_DIR)/azure-vnet-telemetry$(EXE_EXT) $(CNI_SWIFT_BUILD_DIR)
@@ -400,7 +404,7 @@ cnm-archive:
 .PHONY: acncli-archive
 acncli-archive:
 ifeq ($(GOOS),linux)
-	mkdir -p $(ACNCLI_BUILD_DIR)
+	$(MKDIR) $(ACNCLI_BUILD_DIR)
 	chmod 0755 $(ACNCLI_BUILD_DIR)/acn$(EXE_EXT)
 	cd $(ACNCLI_BUILD_DIR) && $(ARCHIVE_CMD) $(ACNCLI_ARCHIVE_NAME) acn$(EXE_EXT)
 	chown $(BUILD_USER):$(BUILD_USER) $(ACNCLI_BUILD_DIR)/$(ACNCLI_ARCHIVE_NAME)
