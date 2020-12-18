@@ -6,9 +6,9 @@ MKDIR := powershell.exe -NoProfile -Command New-Item -ItemType Directory -Force
 RMDIR := powershell.exe -NoProfile -Command Remove-Item -Recurse -Force
 endif
 
-# Build defaults.
-GOOS ?= linux
-GOARCH ?= amd64
+# Go environment
+GOOS := $(shell go env GOOS)
+GOARCH := $(shell go env GOARCH)
 
 # Build directories.
 ROOT_DIR := $(shell git rev-parse --show-toplevel)
@@ -110,10 +110,16 @@ azure-cni-plugin: azure-vnet-binary azure-vnet-ipam-binary azure-vnet-ipamv6-bin
 azure-cns: azure-cns-binary cns-archive
 acncli: acncli-binary acncli-archive
 
+# Azure-NPM only supports Linux for now.
+ifeq ($(GOOS),linux)
+azure-cnms: azure-cnms-binary cnms-archive
+azure-npm: azure-npm-binary npm-archive
+endif
+
 # Clean all build artifacts.
 .PHONY: clean
 clean:
-	$(MKDIR) $(OUTPUT_DIR)
+	$(RMDIR) $(OUTPUT_DIR)
 
 ########################### Binaries ###########################
 
