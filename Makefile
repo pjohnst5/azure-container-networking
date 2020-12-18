@@ -10,6 +10,18 @@ endif
 GOOS := $(shell go env GOOS)
 GOARCH := $(shell go env GOARCH)
 
+# Target OS specific parameters.
+ifeq ($(GOOS),linux)
+	# Linux.
+	ARCHIVE_CMD = tar -czvf
+	ARCHIVE_EXT = tgz
+else
+	# Windows.
+	ARCHIVE_CMD = zip -9lq
+	ARCHIVE_EXT = zip
+	EXE_EXT = .exe
+endif
+
 # Build directories.
 ROOT_DIR := $(shell git rev-parse --show-toplevel)
 CNM_DIR = cnm/plugin
@@ -36,24 +48,6 @@ NPM_TELEMETRY_DIR = $(NPM_BUILD_DIR)/telemetry
 CNI_AI_ID = 5515a1eb-b2bc-406a-98eb-ba462e6f0411
 NPM_AI_ID = 014c22bd-4107-459e-8475-67909e96edcb
 ACN_PACKAGE_PATH = github.com/Azure/azure-container-networking
-
-# Containerized build parameters.
-BUILD_CONTAINER_IMAGE = acn-build
-BUILD_CONTAINER_NAME = acn-builder
-BUILD_CONTAINER_REPO_PATH = /go/src/github.com/Azure/azure-container-networking
-BUILD_USER ?= $(shell id -u)
-
-# Target OS specific parameters.
-ifeq ($(GOOS),linux)
-	# Linux.
-	ARCHIVE_CMD = tar -czvf
-	ARCHIVE_EXT = tgz
-else
-	# Windows.
-	ARCHIVE_CMD = zip -9lq
-	ARCHIVE_EXT = zip
-	EXE_EXT = .exe
-endif
 
 # Archive file names.
 CNM_ARCHIVE_NAME = azure-vnet-cnm-$(GOOS)-$(GOARCH)-$(VERSION).$(ARCHIVE_EXT)
@@ -176,35 +170,14 @@ hack: acncli
 
 ########################### Container Images ###########################
 
-# Build all binaries in a container.
-.PHONY: all-containerized
-all-containerized:
-	pwd && ls -l
-	docker build -f Dockerfile.build -t $(BUILD_CONTAINER_IMAGE):$(VERSION) .
-	docker run --name $(BUILD_CONTAINER_NAME) \
-		-v /usr/bin/docker:/usr/bin/docker \
-		-v /var/run/docker.sock:/var/run/docker.sock \
-		$(BUILD_CONTAINER_IMAGE):$(VERSION) \
-		bash -c '\
-			pwd && ls -l && \
-			export GOOS=$(GOOS) && \
-			export GOARCH=$(GOARCH) && \
-			make all-binaries && \
-			make all-images && \
-			chown -R $(BUILD_USER):$(BUILD_USER) $(BUILD_DIR) \
-		'
-	docker cp $(BUILD_CONTAINER_NAME):$(BUILD_CONTAINER_REPO_PATH)/$(BUILD_DIR) $(OUTPUT_DIR)
-	docker rm $(BUILD_CONTAINER_NAME)
-	docker rmi $(BUILD_CONTAINER_IMAGE):$(VERSION)
-
 # Build the hack images
 .PHONY: hack-images
 hack-images: 
 	docker build -f ./hack/acncli/Dockerfile --build-arg VERSION=$(VERSION) -t $(AZURE_CNI_IMAGE):$(VERSION) .
 
 # Build the Azure CNM plugin image, installable with "docker plugin install".
-.PHONY: azure-vnet-plugin-image
-azure-vnet-plugin-image: azure-cnm-plugin
+.PHONY: azure-cnm-plugin-image
+azure-cnm-plugin-image: azure-cnm-plugin
 	# Build the plugin image, keeping any old image during build for cache, but remove it afterwards.
 	docker images -q $(CNM_PLUGIN_ROOTFS):$(VERSION) > cid
 	docker build \
@@ -236,7 +209,7 @@ azure-vnet-plugin-image: azure-cnm-plugin
 
 # Build the Azure NPM image.
 .PHONY: azure-npm-image
-azure-npm-image: azure-npm
+azure-npm-image: azure-npm-binary
 ifeq ($(GOOS),linux)
 	docker build \
 	--no-cache \
@@ -249,7 +222,7 @@ endif
 
 # Build the Azure vnet telemetry image
 .PHONY: azure-vnet-telemetry-image
-azure-vnet-telemetry-image: azure-vnet-telemetry
+azure-vnet-telemetry-image: azure-vnet-telemetry-binary
 	docker build \
 	-f cni/telemetry/Dockerfile \
 	-t $(AZURE_VNET_TELEMETRY_IMAGE):$(VERSION) \
@@ -260,7 +233,7 @@ azure-vnet-telemetry-image: azure-vnet-telemetry
 
 # Build the Azure CNS image.
 .PHONY: azure-cns-image
-azure-cns-image: azure-cns
+azure-cns-image: azure-cns-binary
 ifeq ($(GOOS),linux)
 	docker build \
 	-f cns/Dockerfile \
@@ -348,8 +321,8 @@ publish-azure-npm-image:
 	docker push $(AZURE_NPM_IMAGE):$(VERSION)
 
 # Publish the Azure CNM plugin image to a Docker registry.
-.PHONY: publish-azure-vnet-plugin-image
-publish-azure-vnet-plugin-image:
+.PHONY: publish-azure-cnm-plugin-image
+publish-azure-cnm-plugin-image:
 	docker plugin push $(CNM_PLUGIN_IMAGE):$(VERSION)
 
 # Publish the Azure vnet telemetry image to a Docker registry
@@ -357,7 +330,7 @@ publish-azure-vnet-plugin-image:
 publish-azure-vnet-telemetry-image:
 	docker push $(AZURE_VNET_TELEMETRY_IMAGE):$(VERSION)
 
-# Publish the Azure NPM image to a Docker registry
+# Publish the Azure CNS image to a Docker registry
 .PHONY: publish-azure-cns-image
 publish-azure-cns-image:
 	docker push $(AZURE_CNS_IMAGE):$(VERSION)
