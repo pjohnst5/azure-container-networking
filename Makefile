@@ -1,3 +1,11 @@
+# Cross-platform directory creation/deletion
+MKDIR := mkdir -p
+RMDIR := rm -rf
+ifeq ($(OS),Windows_NT)
+MKDIR := powershell.exe -NoProfile -Command New-Item -ItemType Directory -Force
+RMDIR := powershell.exe -NoProfile -Command Remove-Item -Recurse -Force
+endif
+
 # Build defaults.
 GOOS ?= linux
 GOARCH ?= amd64
@@ -40,15 +48,11 @@ ifeq ($(GOOS),linux)
 	# Linux.
 	ARCHIVE_CMD = tar -czvf
 	ARCHIVE_EXT = tgz
-	MKDIR := mkdir -p
-	RMDIR := rm -rf
 else
 	# Windows.
 	ARCHIVE_CMD = zip -9lq
 	ARCHIVE_EXT = zip
 	EXE_EXT = .exe
-	MKDIR := powershell.exe -NoProfile -Command New-Item -ItemType Directory -Force
-	RMDIR := powershell.exe -NoProfile -Command Remove-Item -Recurse -Force
 endif
 
 # Archive file names.
