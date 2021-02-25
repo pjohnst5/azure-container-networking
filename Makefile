@@ -181,7 +181,7 @@ all-binaries: azure-cnm-plugin azure-cni-plugin azure-cns
 endif
 
 ifeq ($(GOOS),linux)
-all-images: azure-npm-image azure-cns
+all-images: azure-npm-image azure-cns-image
 else
 all-images:
 	@echo "Nothing to build. Skip."
@@ -350,7 +350,7 @@ publish-azure-vnet-telemetry-image:
 	docker push $(AZURE_VNET_TELEMETRY_IMAGE):$(VERSION)
 
 # Build the Azure CNS image (right one)
-.PHONY: azure-cns
+.PHONY: azure-cns-image
 azure-cns:
 ifeq ($(GOOS),linux)
 	docker build \
