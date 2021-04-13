@@ -24,15 +24,11 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -a -o /usr/local/bin/azure-vn
 # RUN true is due to ongoing issue https://github.com/moby/moby/issues/37965
 FROM alpine:latest
 COPY --from=builder /etc/passwd /etc/passwd
-RUN true
 COPY --from=builder /etc/group /etc/group
-RUN true
 COPY --from=builder /usr/local/bin/azure-cns \
 	/usr/local/bin/azure-cns
-RUN true
 COPY --from=builder /usr/local/bin/azure-vnet-telemetry \
     /usr/local/bin/azure-vnet-telemetry
-RUN true
 COPY --from=certs /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
 
 ENTRYPOINT [ "/usr/local/bin/azure-cns" ]
