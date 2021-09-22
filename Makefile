@@ -57,6 +57,7 @@ TOOLS_BIN_DIR = $(TOOLS_DIR)/bin
 CNI_AI_ID = 5515a1eb-b2bc-406a-98eb-ba462e6f0411
 NPM_AI_ID = 014c22bd-4107-459e-8475-67909e96edcb
 ACN_PACKAGE_PATH = github.com/Azure/azure-container-networking
+CNI_AI_PATH=$(ACN_PACKAGE_PATH)/telemetry.aiMetadata
 
 # Tool paths
 CONTROLLER_GEN := $(TOOLS_BIN_DIR)/controller-gen
@@ -166,7 +167,7 @@ azure-vnet-ipamv6-binary:
 # Build the Azure CNI telemetry binary.
 .PHONY: azure-vnet-telemetry-binary
 azure-vnet-telemetry-binary:
-	cd $(CNI_TELEMETRY_DIR) && CGO_ENABLED=0 go build -v -o $(CNI_BUILD_DIR)/azure-vnet-telemetry$(EXE_EXT) -ldflags "-X main.version=$(VERSION) -X $(ACN_PACKAGE_PATH)/telemetry.aiMetadata=$(CNI_AI_ID)" -gcflags="-dwarflocationlists=true"
+	cd $(CNI_TELEMETRY_DIR) && CGO_ENABLED=0 go build -v -o $(CNI_BUILD_DIR)/azure-vnet-telemetry$(EXE_EXT) -ldflags "-X main.version=$(VERSION) -X $(CNI_AI_PATH)=$(CNI_AI_ID)" -gcflags="-dwarflocationlists=true"
 
 # Build the Azure CLI network binary.
 .PHONY: acncli-binary
@@ -247,29 +248,32 @@ endif
 
 # Build the Azure CNMS image
 .PHONY: azure-cnms-image
-azure-cnms-image: azure-cnms-binary
+azure-cnms-image:
 ifeq ($(GOOS),linux)
 	$(MKDIR) $(IMAGE_DIR)
-	docker build \
+	docker buildx create --use
+	docker buildx build \
 	--no-cache \
 	-f cnms/Dockerfile \
 	-t $(AZURE_CNMS_IMAGE):$(VERSION) \
-	--build-arg CNMS_BUILD_DIR=$(CNMS_BUILD_DIR) \
+	--build-arg VERSION=$(VERSION) \
+	--platform=linux/amd64,linux/arm64 \
 	.
-	docker save $(AZURE_CNMS_IMAGE):$(VERSION) | gzip -c > $(IMAGE_DIR)/$(CNMS_IMAGE_ARCHIVE_NAME)
 endif
 
 # Build the Azure vnet telemetry image
 .PHONY: azure-vnet-telemetry-image
-azure-vnet-telemetry-image: azure-vnet-telemetry-binary
+azure-vnet-telemetry-image:
 	$(MKDIR) $(IMAGE_DIR)
-	docker build \
+	docker buildx create --use
+	docker buildx build \
 	-f cni/telemetry/Dockerfile \
 	-t $(AZURE_VNET_TELEMETRY_IMAGE):$(VERSION) \
-	--build-arg TELEMETRY_BUILD_DIR=$(NPM_BUILD_DIR) \
-	--build-arg TELEMETRY_CONF_DIR=$(TELEMETRY_CONF_DIR) \
+	--build-arg VERSION=$(VERSION) \
+	--build-arg CNI_AI_PATH=$(CNI_AI_PATH) \
+	--build-arg CNI_AI_ID=$(CNI_AI_ID) \
+	--platform=linux/amd64,linux/arm64 \
 	.
-	docker save $(AZURE_VNET_TELEMETRY_IMAGE):$(VERSION) | gzip -c > $(NPM_BUILD_DIR)/$(TELEMETRY_IMAGE_ARCHIVE_NAME)
 
 # Build the Azure CNS image
 .PHONY: azure-cns-image
