@@ -1,0 +1,35 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: windows-daemonset
+spec:
+  selector:
+    matchLabels:
+      app: windows-pod
+  template:
+    metadata:
+      labels:
+        app: windows-pod
+    spec:
+      securityContext:
+        windowsOptions:
+          hostProcess: true
+          runAsUserName: "NT AUTHORITY\\Local service"
+      hostNetwork: true
+      containers:
+      - name: win-container
+        image: acnpublic.azurecr.io/azure-cns-win:v1.4.12-43-g21f203db8-dirty
+        imagePullPolicy: Always # Change to IfNotPresent after development
+        args: ["--version"]
+        volumeMounts:
+        - name: log
+          mountPath: /k
+        ports:
+        - containerPort: 10090
+      volumes:
+      - name: log
+        hostPath:
+          path: /k
+          type: Directory
+      nodeSelector:
+        kubernetes.io/os: windows
